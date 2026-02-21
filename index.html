@@ -2,100 +2,130 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<title>Smart Parking Pro</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Parking Secure</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+
 <style>
 :root{
-  --bg:#f4f6f9;
-  --card:#ffffff;
-  --text:#222;
+  --primary:#6C63FF;
+  --success:#00C896;
+  --danger:#FF5C5C;
+  --bg1:#667eea;
+  --bg2:#764ba2;
 }
-body.dark{
-  --bg:#1e1f26;
-  --card:#2c2f3a;
-  --text:#fff;
-}
+
 body{
   margin:0;
-  font-family:Arial;
-  background:var(--bg);
-  color:var(--text);
-  transition:0.3s;
-}
-header{
-  padding:15px;
-  text-align:center;
-  font-size:22px;
-  font-weight:bold;
-}
-nav{
+  font-family:'Prompt',sans-serif;
+  background:linear-gradient(135deg,var(--bg1),var(--bg2));
   display:flex;
   justify-content:center;
-  gap:10px;
+  align-items:center;
+  min-height:100vh;
+  color:#fff;
 }
-button{
-  padding:10px 20px;
-  border:none;
-  border-radius:8px;
-  cursor:pointer;
+
+.app{
+  width:95%;
+  max-width:450px;
+  background:rgba(255,255,255,0.1);
+  backdrop-filter:blur(15px);
+  border-radius:25px;
+  padding:25px;
+  box-shadow:0 15px 40px rgba(0,0,0,0.3);
 }
-.primary{background:#4CAF50;color:white;}
-.danger{background:#f44336;color:white;}
-.info{background:#2196F3;color:white;}
-.darkbtn{background:#555;color:white;}
+
+header{
+  text-align:center;
+  font-size:22px;
+  font-weight:600;
+  margin-bottom:20px;
+}
+
 .card{
-  background:var(--card);
-  max-width:400px;
-  margin:20px auto;
+  background:rgba(255,255,255,0.15);
   padding:20px;
-  border-radius:12px;
-  box-shadow:0 5px 15px rgba(0,0,0,0.1);
+  border-radius:20px;
+  margin-bottom:15px;
 }
+
 input{
   width:100%;
-  padding:8px;
-  margin:5px 0;
+  padding:10px;
+  border-radius:12px;
+  border:none;
+  margin-bottom:10px;
 }
+
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:15px;
+  margin:5px 0;
+  font-size:15px;
+  cursor:pointer;
+  transition:0.3s;
+}
+
+.btn-in{background:var(--success);color:#fff;}
+.btn-out{background:var(--danger);color:#fff;}
+.btn-admin{background:var(--primary);color:#fff;}
+
+button:hover{transform:scale(1.05);}
+
 .hidden{display:none;}
+
 table{
   width:100%;
-  border-collapse:collapse;
+  font-size:12px;
   margin-top:10px;
 }
+
 th,td{
   padding:6px;
-  border-bottom:1px solid #ccc;
-  font-size:12px;
 }
+
+.status{
+  text-align:center;
+  margin-bottom:10px;
+}
+
 </style>
 </head>
+
 <body>
 
-<header>🚗 Smart Parking Pro</header>
+<div class="app">
+<header>🚗 Smart Parking Secure</header>
 
-<nav>
-<button onclick="showTab('user')">ลูกค้า</button>
-<button onclick="showTab('admin')">แอดมิน</button>
-<button class="darkbtn" onclick="toggleDark()">🌙</button>
-</nav>
+<div class="card">
+<div class="status" id="status"></div>
 
-<div id="userTab" class="card">
-<h3>ระบบจอดรถ</h3>
-<p id="status"></p>
-<button class="primary" onclick="checkIn()">รับบัตรจอด</button>
-<button class="danger" onclick="checkOut()">ออกจากลาน</button>
+<h4>🚘 รับบัตรจอด</h4>
+<input type="text" id="plateInput" placeholder="กรอกทะเบียนรถ เช่น กข1234">
+<button class="btn-in" onclick="checkIn()">รับบัตรจอด</button>
+
+<hr>
+
+<h4>🚪 ออกจากลาน</h4>
+<input type="text" id="ticketInput" placeholder="กรอก Ticket ID">
+<button class="btn-out" onclick="checkOut()">คำนวณเงินและออก</button>
 </div>
 
-<div id="adminLogin" class="card hidden">
-<h3>เข้าสู่ระบบแอดมิน</h3>
-<input type="password" id="adminPass" placeholder="รหัสผ่าน">
-<button class="info" onclick="login()">เข้าสู่ระบบ</button>
-</div>
+<div class="card">
+<h4>🔐 แอดมิน</h4>
+<input type="password" id="adminPass" placeholder="รหัสผ่านแอดมิน">
+<button class="btn-admin" onclick="adminLogin()">เข้าสู่ระบบ</button>
 
-<div id="adminPanel" class="card hidden">
-<h3>📊 รายงาน</h3>
+<div id="adminPanel" class="hidden">
 <p id="summary"></p>
-<button onclick="exportCSV()">📥 Export CSV</button>
 <table id="logTable"></table>
+</div>
+</div>
+
 </div>
 
 <script>
@@ -106,100 +136,108 @@ const ADMIN_PASSWORD = "admin123";
 function getData(){
   return JSON.parse(localStorage.getItem("parkingLogs"))||[];
 }
+
 function saveData(data){
   localStorage.setItem("parkingLogs",JSON.stringify(data));
 }
+
 function updateStatus(){
-  const data=getData();
-  const active=data.filter(d=>!d.time_out);
+  const active=getData().filter(d=>!d.time_out);
   document.getElementById("status").innerText=
-  "จำนวนรถปัจจุบัน: "+active.length+" / "+MAX_PARKING;
+  "🚘 รถปัจจุบัน "+active.length+" / "+MAX_PARKING+" ช่อง";
 }
+
+function generateTicket(){
+  return "PK-" + Math.floor(10000 + Math.random()*90000);
+}
+
 function checkIn(){
+  let plate=document.getElementById("plateInput").value.trim();
+  if(!plate){
+    alert("กรุณากรอกทะเบียนรถ");
+    return;
+  }
+
   let data=getData();
   if(data.filter(d=>!d.time_out).length>=MAX_PARKING){
     alert("ที่จอดเต็ม");
     return;
   }
+
+  let ticket=generateTicket();
+
   data.push({
+    plate:plate,
+    ticket:ticket,
     time_in:new Date().toISOString(),
     time_out:null,
     price:0
   });
+
   saveData(data);
   updateStatus();
-  alert("บันทึกเวลาเข้าแล้ว");
+
+  alert("บันทึกสำเร็จ\nTicket ID: "+ticket);
+  document.getElementById("plateInput").value="";
 }
+
 function checkOut(){
-  let data=getData();
-  let active=data.find(d=>!d.time_out);
-  if(!active){
-    alert("ไม่มีรถในระบบ");
+  let ticket=document.getElementById("ticketInput").value.trim();
+  if(!ticket){
+    alert("กรุณากรอก Ticket ID");
     return;
   }
-  const timeIn=new Date(active.time_in);
+
+  let data=getData();
+  let record=data.find(d=>d.ticket===ticket && !d.time_out);
+
+  if(!record){
+    alert("ไม่พบ Ticket นี้");
+    return;
+  }
+
+  const timeIn=new Date(record.time_in);
   const timeOut=new Date();
   const minutes=Math.ceil((timeOut-timeIn)/60000);
   const hours=Math.ceil(minutes/60);
   const price=hours*PRICE_PER_HOUR;
-  active.time_out=timeOut.toISOString();
-  active.price=price;
+
+  record.time_out=timeOut.toISOString();
+  record.price=price;
+
   saveData(data);
   updateStatus();
-  alert("ค่าจอด: "+price+" บาท");
-}
-function showTab(tab){
-  document.getElementById("userTab").classList.add("hidden");
-  document.getElementById("adminLogin").classList.add("hidden");
-  document.getElementById("adminPanel").classList.add("hidden");
 
-  if(tab==="user"){
-    document.getElementById("userTab").classList.remove("hidden");
-  }else{
-    document.getElementById("adminLogin").classList.remove("hidden");
-  }
+  alert("ทะเบียน: "+record.plate+"\nค่าจอด: "+price+" บาท");
+  document.getElementById("ticketInput").value="";
 }
-function login(){
+
+function adminLogin(){
   if(document.getElementById("adminPass").value===ADMIN_PASSWORD){
-    document.getElementById("adminLogin").classList.add("hidden");
-    document.getElementById("adminPanel").classList.remove("hidden");
     loadReport();
+    document.getElementById("adminPanel").classList.remove("hidden");
   }else{
     alert("รหัสผ่านผิด");
   }
 }
+
 function loadReport(){
   const data=getData();
   let total=data.reduce((sum,d)=>sum+d.price,0);
-  document.getElementById("summary").innerText=
-  "จำนวนรายการทั้งหมด: "+data.length+
-  " | รายได้รวม: "+total+" บาท";
 
-  let table="<tr><th>เข้า</th><th>ออก</th><th>ราคา</th></tr>";
+  document.getElementById("summary").innerText=
+  "📊 ทั้งหมด "+data.length+" รายการ | รายได้รวม "+total+" บาท";
+
+  let table="<tr><th>ทะเบียน</th><th>Ticket</th><th>เข้า</th><th>ออก</th><th>ราคา</th></tr>";
+
   data.forEach(d=>{
-    table+="<tr><td>"+(d.time_in||"-")+"</td><td>"+
-    (d.time_out||"-")+"</td><td>"+d.price+"</td></tr>";
+    table+="<tr><td>"+d.plate+"</td><td>"+d.ticket+"</td><td>"+(d.time_in||"-")+"</td><td>"+(d.time_out||"-")+"</td><td>"+d.price+"</td></tr>";
   });
+
   document.getElementById("logTable").innerHTML=table;
 }
-function exportCSV(){
-  const data=getData();
-  let csv="Time In,Time Out,Price\n";
-  data.forEach(d=>{
-    csv+=`${d.time_in},${d.time_out},${d.price}\n`;
-  });
-  const blob=new Blob([csv],{type:"text/csv"});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");
-  a.href=url;
-  a.download="parking_report.csv";
-  a.click();
-}
-function toggleDark(){
-  document.body.classList.toggle("dark");
-}
+
 updateStatus();
-showTab("user");
 </script>
 
 </body>
