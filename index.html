@@ -1,244 +1,105 @@
 <!DOCTYPE html>
-<html lang="th">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Parking Secure</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
-
-<style>
-:root{
-  --primary:#6C63FF;
-  --success:#00C896;
-  --danger:#FF5C5C;
-  --bg1:#667eea;
-  --bg2:#764ba2;
-}
-
-body{
-  margin:0;
-  font-family:'Prompt',sans-serif;
-  background:linear-gradient(135deg,var(--bg1),var(--bg2));
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
-  color:#fff;
-}
-
-.app{
-  width:95%;
-  max-width:450px;
-  background:rgba(255,255,255,0.1);
-  backdrop-filter:blur(15px);
-  border-radius:25px;
-  padding:25px;
-  box-shadow:0 15px 40px rgba(0,0,0,0.3);
-}
-
-header{
-  text-align:center;
-  font-size:22px;
-  font-weight:600;
-  margin-bottom:20px;
-}
-
-.card{
-  background:rgba(255,255,255,0.15);
-  padding:20px;
-  border-radius:20px;
-  margin-bottom:15px;
-}
-
-input{
-  width:100%;
-  padding:10px;
-  border-radius:12px;
-  border:none;
-  margin-bottom:10px;
-}
-
-button{
-  width:100%;
-  padding:12px;
-  border:none;
-  border-radius:15px;
-  margin:5px 0;
-  font-size:15px;
-  cursor:pointer;
-  transition:0.3s;
-}
-
-.btn-in{background:var(--success);color:#fff;}
-.btn-out{background:var(--danger);color:#fff;}
-.btn-admin{background:var(--primary);color:#fff;}
-
-button:hover{transform:scale(1.05);}
-
-.hidden{display:none;}
-
-table{
-  width:100%;
-  font-size:12px;
-  margin-top:10px;
-}
-
-th,td{
-  padding:6px;
-}
-
-.status{
-  text-align:center;
-  margin-bottom:10px;
-}
-
-</style>
+  <meta charset="UTF-8">
+  <title>Smart Parking (4 Slots)</title>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
 </head>
-
 <body>
+  <h2>🚗 ระบบที่จอดรถอัจฉริยะ</h2>
 
-<div class="app">
-<header>🚗 Smart Parking Secure</header>
+  <h3>สถานะที่จอด</h3>
+  <p id="status">กำลังโหลด...</p>
 
-<div class="card">
-<div class="status" id="status"></div>
+  <hr>
 
-<h4>🚘 รับบัตรจอด</h4>
-<input type="text" id="plateInput" placeholder="กรอกทะเบียนรถ เช่น กข1234">
-<button class="btn-in" onclick="checkIn()">รับบัตรจอด</button>
+  <h3>รับบัตรจอดรถ</h3>
+  <input type="text" id="plate" placeholder="กรอกทะเบียนรถ">
+  <button onclick="checkIn()">รับบัตร</button>
 
-<hr>
+  <hr>
 
-<h4>🚪 ออกจากลาน</h4>
-<input type="text" id="ticketInput" placeholder="กรอก Ticket ID">
-<button class="btn-out" onclick="checkOut()">คำนวณเงินและออก</button>
-</div>
+  <h3>รถออก</h3>
+  <input type="text" id="plateOut" placeholder="กรอกทะเบียนรถ">
+  <button onclick="checkOut()">รถออก</button>
 
-<div class="card">
-<h4>🔐 แอดมิน</h4>
-<input type="password" id="adminPass" placeholder="รหัสผ่านแอดมิน">
-<button class="btn-admin" onclick="adminLogin()">เข้าสู่ระบบ</button>
+  <script>
+    // 🔥 ใส่ config ของคุณเอง
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+      projectId: "YOUR_PROJECT",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "XXXX",
+      appId: "XXXX"
+    };
 
-<div id="adminPanel" class="hidden">
-<p id="summary"></p>
-<table id="logTable"></table>
-</div>
-</div>
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
 
-</div>
+    const MAX_SLOT = 4;
 
-<script>
-const MAX_PARKING = 5;
-const PRICE_PER_HOUR = 20;
-const ADMIN_PASSWORD = "admin123";
+    // 🔄 แสดงผลแบบเรียลไทม์
+    db.ref("parking").on("value", (snapshot) => {
+      const data = snapshot.val();
+      const count = data ? Object.keys(data).length : 0;
 
-function getData(){
-  return JSON.parse(localStorage.getItem("parkingLogs"))||[];
-}
+      document.getElementById("status").innerHTML =
+        `จอดแล้ว ${count} / ${MAX_SLOT} คัน`;
 
-function saveData(data){
-  localStorage.setItem("parkingLogs",JSON.stringify(data));
-}
+      if (count >= MAX_SLOT) {
+        document.getElementById("status").innerHTML += " ❌ เต็มแล้ว";
+      } else {
+        document.getElementById("status").innerHTML += " ✅ ยังว่าง";
+      }
+    });
 
-function updateStatus(){
-  const active=getData().filter(d=>!d.time_out);
-  document.getElementById("status").innerText=
-  "🚘 รถปัจจุบัน "+active.length+" / "+MAX_PARKING+" ช่อง";
-}
+    // ✅ รถเข้า
+    function checkIn() {
+      const plate = document.getElementById("plate").value.trim();
+      if (!plate) {
+        alert("กรุณากรอกทะเบียนรถ");
+        return;
+      }
 
-function generateTicket(){
-  return "PK-" + Math.floor(10000 + Math.random()*90000);
-}
+      db.ref("parking").once("value", (snapshot) => {
+        const data = snapshot.val();
+        const count = data ? Object.keys(data).length : 0;
 
-function checkIn(){
-  let plate=document.getElementById("plateInput").value.trim();
-  if(!plate){
-    alert("กรุณากรอกทะเบียนรถ");
-    return;
-  }
+        if (count >= MAX_SLOT) {
+          alert("ที่จอดเต็มแล้ว!");
+          return;
+        }
 
-  let data=getData();
-  if(data.filter(d=>!d.time_out).length>=MAX_PARKING){
-    alert("ที่จอดเต็ม");
-    return;
-  }
+        db.ref("parking/" + plate).set({
+          plate: plate,
+          timeIn: new Date().toLocaleString()
+        });
 
-  let ticket=generateTicket();
+        alert("บันทึกเรียบร้อย ไม้กั้นเปิด");
+        document.getElementById("plate").value = "";
+      });
+    }
 
-  data.push({
-    plate:plate,
-    ticket:ticket,
-    time_in:new Date().toISOString(),
-    time_out:null,
-    price:0
-  });
+    // 🚗 รถออก
+    function checkOut() {
+      const plate = document.getElementById("plateOut").value.trim();
+      if (!plate) {
+        alert("กรุณากรอกทะเบียนรถ");
+        return;
+      }
 
-  saveData(data);
-  updateStatus();
-
-  alert("บันทึกสำเร็จ\nTicket ID: "+ticket);
-  document.getElementById("plateInput").value="";
-}
-
-function checkOut(){
-  let ticket=document.getElementById("ticketInput").value.trim();
-  if(!ticket){
-    alert("กรุณากรอก Ticket ID");
-    return;
-  }
-
-  let data=getData();
-  let record=data.find(d=>d.ticket===ticket && !d.time_out);
-
-  if(!record){
-    alert("ไม่พบ Ticket นี้");
-    return;
-  }
-
-  const timeIn=new Date(record.time_in);
-  const timeOut=new Date();
-  const minutes=Math.ceil((timeOut-timeIn)/60000);
-  const hours=Math.ceil(minutes/60);
-  const price=hours*PRICE_PER_HOUR;
-
-  record.time_out=timeOut.toISOString();
-  record.price=price;
-
-  saveData(data);
-  updateStatus();
-
-  alert("ทะเบียน: "+record.plate+"\nค่าจอด: "+price+" บาท");
-  document.getElementById("ticketInput").value="";
-}
-
-function adminLogin(){
-  if(document.getElementById("adminPass").value===ADMIN_PASSWORD){
-    loadReport();
-    document.getElementById("adminPanel").classList.remove("hidden");
-  }else{
-    alert("รหัสผ่านผิด");
-  }
-}
-
-function loadReport(){
-  const data=getData();
-  let total=data.reduce((sum,d)=>sum+d.price,0);
-
-  document.getElementById("summary").innerText=
-  "📊 ทั้งหมด "+data.length+" รายการ | รายได้รวม "+total+" บาท";
-
-  let table="<tr><th>ทะเบียน</th><th>Ticket</th><th>เข้า</th><th>ออก</th><th>ราคา</th></tr>";
-
-  data.forEach(d=>{
-    table+="<tr><td>"+d.plate+"</td><td>"+d.ticket+"</td><td>"+(d.time_in||"-")+"</td><td>"+(d.time_out||"-")+"</td><td>"+d.price+"</td></tr>";
-  });
-
-  document.getElementById("logTable").innerHTML=table;
-}
-
-updateStatus();
-</script>
-
+      db.ref("parking/" + plate).remove()
+        .then(() => {
+          alert("รถออกเรียบร้อย");
+          document.getElementById("plateOut").value = "";
+        })
+        .catch(() => {
+          alert("ไม่พบทะเบียนนี้ในระบบ");
+        });
+    }
+  </script>
 </body>
 </html>
