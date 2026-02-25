@@ -1,105 +1,188 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <meta charset="UTF-8">
-  <title>Smart Parking (4 Slots)</title>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Parking</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+:root{
+  --primary:#6366f1;
+  --success:#10b981;
+  --danger:#ef4444;
+  --bg:#f4f6fb;
+}
+
+body{
+  margin:0;
+  font-family:'Prompt',sans-serif;
+  background:var(--bg);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+
+.app{
+  width:95%;
+  max-width:420px;
+  background:white;
+  border-radius:20px;
+  padding:25px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.08);
+}
+
+h1{
+  text-align:center;
+  font-size:22px;
+  margin-bottom:15px;
+  color:#333;
+}
+
+.status-box{
+  text-align:center;
+  padding:15px;
+  border-radius:15px;
+  margin-bottom:20px;
+  font-weight:600;
+  background:#eef2ff;
+  color:var(--primary);
+}
+
+input{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid #ddd;
+  margin-bottom:10px;
+  font-size:14px;
+}
+
+button{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:12px;
+  font-size:14px;
+  cursor:pointer;
+  margin-bottom:10px;
+  transition:0.2s;
+}
+
+button:hover{
+  transform:scale(1.03);
+}
+
+.btn-in{background:var(--success);color:white;}
+.btn-out{background:var(--danger);color:white;}
+
+hr{
+  margin:20px 0;
+  border:none;
+  border-top:1px solid #eee;
+}
+</style>
 </head>
+
 <body>
-  <h2>🚗 ระบบที่จอดรถอัจฉริยะ</h2>
 
-  <h3>สถานะที่จอด</h3>
-  <p id="status">กำลังโหลด...</p>
+<div class="app">
+<h1>🚗 Smart Parking</h1>
 
-  <hr>
+<div class="status-box" id="status">
+กำลังโหลด...
+</div>
 
-  <h3>รับบัตรจอดรถ</h3>
-  <input type="text" id="plate" placeholder="กรอกทะเบียนรถ">
-  <button onclick="checkIn()">รับบัตร</button>
+<h3>รับบัตรจอดรถ</h3>
+<input type="text" id="plateIn" placeholder="กรอกทะเบียนรถ">
+<button class="btn-in" onclick="checkIn()">รับบัตร</button>
 
-  <hr>
+<hr>
 
-  <h3>รถออก</h3>
-  <input type="text" id="plateOut" placeholder="กรอกทะเบียนรถ">
-  <button onclick="checkOut()">รถออก</button>
+<h3>รถออก</h3>
+<input type="text" id="plateOut" placeholder="กรอกทะเบียนรถ">
+<button class="btn-out" onclick="checkOut()">รถออก</button>
 
-  <script>
-    // 🔥 ใส่ config ของคุณเอง
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_PROJECT.firebaseapp.com",
-      databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
-      projectId: "YOUR_PROJECT",
-      storageBucket: "YOUR_PROJECT.appspot.com",
-      messagingSenderId: "XXXX",
-      appId: "XXXX"
-    };
+</div>
 
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+<script>
+const MAX_SLOT = 4;
 
-    const MAX_SLOT = 4;
+function getData(){
+  return JSON.parse(localStorage.getItem("parking")) || [];
+}
 
-    // 🔄 แสดงผลแบบเรียลไทม์
-    db.ref("parking").on("value", (snapshot) => {
-      const data = snapshot.val();
-      const count = data ? Object.keys(data).length : 0;
+function saveData(data){
+  localStorage.setItem("parking", JSON.stringify(data));
+}
 
-      document.getElementById("status").innerHTML =
-        `จอดแล้ว ${count} / ${MAX_SLOT} คัน`;
+function updateUI(){
+  const data = getData();
+  const count = data.length;
 
-      if (count >= MAX_SLOT) {
-        document.getElementById("status").innerHTML += " ❌ เต็มแล้ว";
-      } else {
-        document.getElementById("status").innerHTML += " ✅ ยังว่าง";
-      }
-    });
+  const status = document.getElementById("status");
 
-    // ✅ รถเข้า
-    function checkIn() {
-      const plate = document.getElementById("plate").value.trim();
-      if (!plate) {
-        alert("กรุณากรอกทะเบียนรถ");
-        return;
-      }
+  if(count >= MAX_SLOT){
+    status.style.background = "#fee2e2";
+    status.style.color = "#b91c1c";
+    status.innerHTML = `❌ เต็มแล้ว (${count}/${MAX_SLOT})`;
+  }else{
+    status.style.background = "#ecfdf5";
+    status.style.color = "#065f46";
+    status.innerHTML = `✅ ว่าง ${MAX_SLOT-count} ช่อง (${count}/${MAX_SLOT})`;
+  }
+}
 
-      db.ref("parking").once("value", (snapshot) => {
-        const data = snapshot.val();
-        const count = data ? Object.keys(data).length : 0;
+function checkIn(){
+  const plate = document.getElementById("plateIn").value.trim();
+  if(!plate){
+    alert("กรุณากรอกทะเบียนรถ");
+    return;
+  }
 
-        if (count >= MAX_SLOT) {
-          alert("ที่จอดเต็มแล้ว!");
-          return;
-        }
+  const data = getData();
 
-        db.ref("parking/" + plate).set({
-          plate: plate,
-          timeIn: new Date().toLocaleString()
-        });
+  if(data.length >= MAX_SLOT){
+    alert("ที่จอดเต็มแล้ว!");
+    return;
+  }
 
-        alert("บันทึกเรียบร้อย ไม้กั้นเปิด");
-        document.getElementById("plate").value = "";
-      });
-    }
+  data.push({
+    plate:plate,
+    time:new Date().toLocaleString()
+  });
 
-    // 🚗 รถออก
-    function checkOut() {
-      const plate = document.getElementById("plateOut").value.trim();
-      if (!plate) {
-        alert("กรุณากรอกทะเบียนรถ");
-        return;
-      }
+  saveData(data);
+  updateUI();
+  alert("บันทึกเรียบร้อย ไม้กั้นเปิด");
+  document.getElementById("plateIn").value="";
+}
 
-      db.ref("parking/" + plate).remove()
-        .then(() => {
-          alert("รถออกเรียบร้อย");
-          document.getElementById("plateOut").value = "";
-        })
-        .catch(() => {
-          alert("ไม่พบทะเบียนนี้ในระบบ");
-        });
-    }
-  </script>
+function checkOut(){
+  const plate = document.getElementById("plateOut").value.trim();
+  if(!plate){
+    alert("กรุณากรอกทะเบียนรถ");
+    return;
+  }
+
+  let data = getData();
+  const newData = data.filter(d => d.plate !== plate);
+
+  if(data.length === newData.length){
+    alert("ไม่พบทะเบียนนี้");
+    return;
+  }
+
+  saveData(newData);
+  updateUI();
+  alert("รถออกเรียบร้อย");
+  document.getElementById("plateOut").value="";
+}
+
+updateUI();
+</script>
+
 </body>
 </html>
