@@ -110,7 +110,9 @@ th{background:#e5e7eb;}
 const MAX_SLOT = 4;
 const PRICE_PER_HOUR = 20;
 const ADMIN_PASS = "admin123";
-const N8N_URL = "PUT_YOUR_N8N_PRODUCTION_URL_HERE";
+
+/* ✅ ใส่ URL n8n ให้แล้ว */
+const N8N_URL = "https://chaaem26.app.n8n.cloud/webhook/parking";
 
 function getData(){
   return JSON.parse(localStorage.getItem("parkingLogs"))||[];
