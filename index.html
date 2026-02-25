@@ -3,16 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Parking</title>
+<title>Smart Parking Pro</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 :root{
   --primary:#6366f1;
   --success:#10b981;
   --danger:#ef4444;
-  --bg:#f4f6fb;
+  --bg:#f3f4f6;
 }
 
 body{
@@ -21,167 +22,242 @@ body{
   background:var(--bg);
   display:flex;
   justify-content:center;
-  align-items:center;
-  min-height:100vh;
+  padding:20px;
 }
 
 .app{
-  width:95%;
-  max-width:420px;
+  width:100%;
+  max-width:500px;
   background:white;
   border-radius:20px;
-  padding:25px;
-  box-shadow:0 10px 30px rgba(0,0,0,0.08);
+  padding:20px;
+  box-shadow:0 10px 30px rgba(0,0,0,0.1);
 }
 
-h1{
-  text-align:center;
-  font-size:22px;
-  margin-bottom:15px;
-  color:#333;
-}
+h1{text-align:center;margin-bottom:15px;}
 
-.status-box{
+.status{
   text-align:center;
-  padding:15px;
-  border-radius:15px;
-  margin-bottom:20px;
+  padding:12px;
+  border-radius:12px;
   font-weight:600;
-  background:#eef2ff;
-  color:var(--primary);
+  margin-bottom:15px;
 }
 
 input{
   width:100%;
-  padding:12px;
-  border-radius:12px;
+  padding:10px;
+  border-radius:10px;
   border:1px solid #ddd;
   margin-bottom:10px;
-  font-size:14px;
 }
 
 button{
   width:100%;
-  padding:12px;
+  padding:10px;
   border:none;
-  border-radius:12px;
-  font-size:14px;
-  cursor:pointer;
+  border-radius:10px;
   margin-bottom:10px;
-  transition:0.2s;
-}
-
-button:hover{
-  transform:scale(1.03);
+  cursor:pointer;
+  font-weight:600;
 }
 
 .btn-in{background:var(--success);color:white;}
 .btn-out{background:var(--danger);color:white;}
+.btn-admin{background:var(--primary);color:white;}
 
-hr{
-  margin:20px 0;
-  border:none;
-  border-top:1px solid #eee;
+.hidden{display:none;}
+.admin-box{
+  background:#f9fafb;
+  padding:15px;
+  border-radius:15px;
+  margin-top:15px;
 }
 </style>
 </head>
 
 <body>
-
 <div class="app">
-<h1>🚗 Smart Parking</h1>
 
-<div class="status-box" id="status">
-กำลังโหลด...
-</div>
+<h1>🚗 Smart Parking Pro</h1>
 
-<h3>รับบัตรจอดรถ</h3>
+<div id="status" class="status"></div>
+
+<h3>🎫 รับบัตรจอด</h3>
 <input type="text" id="plateIn" placeholder="กรอกทะเบียนรถ">
 <button class="btn-in" onclick="checkIn()">รับบัตร</button>
 
+<h3>🚪 ออกจากลาน</h3>
+<input type="text" id="ticketOut" placeholder="กรอก Ticket ID">
+<button class="btn-out" onclick="checkOut()">คำนวณเงิน</button>
+
 <hr>
 
-<h3>รถออก</h3>
-<input type="text" id="plateOut" placeholder="กรอกทะเบียนรถ">
-<button class="btn-out" onclick="checkOut()">รถออก</button>
+<h3>🔐 แอดมิน</h3>
+<input type="password" id="adminPass" placeholder="รหัสผ่าน">
+<button class="btn-admin" onclick="adminLogin()">เข้าสู่ระบบ</button>
+
+<div id="adminPanel" class="hidden admin-box">
+  <h4>📊 สรุปรายได้</h4>
+  <p id="summary"></p>
+  <canvas id="revenueChart"></canvas>
+</div>
 
 </div>
 
 <script>
+/* ================== ตั้งค่า ================== */
+
 const MAX_SLOT = 4;
+const PRICE_PER_HOUR = 20;
+const ADMIN_PASS = "admin123";
+
+/* 🔥 วาง Production URL จาก n8n ตรงนี้ */
+const N8N_URL = "PUT_YOUR_N8N_PRODUCTION_URL_HERE";
+
+/* ============================================ */
 
 function getData(){
-  return JSON.parse(localStorage.getItem("parking")) || [];
+  return JSON.parse(localStorage.getItem("parkingLogs"))||[];
 }
-
 function saveData(data){
-  localStorage.setItem("parking", JSON.stringify(data));
+  localStorage.setItem("parkingLogs",JSON.stringify(data));
 }
 
-function updateUI(){
-  const data = getData();
-  const count = data.length;
+function updateStatus(){
+  const active=getData().filter(d=>!d.time_out);
+  const box=document.getElementById("status");
 
-  const status = document.getElementById("status");
-
-  if(count >= MAX_SLOT){
-    status.style.background = "#fee2e2";
-    status.style.color = "#b91c1c";
-    status.innerHTML = `❌ เต็มแล้ว (${count}/${MAX_SLOT})`;
+  if(active.length>=MAX_SLOT){
+    box.style.background="#fee2e2";
+    box.style.color="#991b1b";
+    box.innerHTML="❌ เต็ม ("+active.length+"/"+MAX_SLOT+")";
   }else{
-    status.style.background = "#ecfdf5";
-    status.style.color = "#065f46";
-    status.innerHTML = `✅ ว่าง ${MAX_SLOT-count} ช่อง (${count}/${MAX_SLOT})`;
+    box.style.background="#ecfdf5";
+    box.style.color="#065f46";
+    box.innerHTML="✅ ว่าง "+(MAX_SLOT-active.length)+" ช่อง";
   }
 }
+
+function generateTicket(){
+  return "PK-"+Math.floor(10000+Math.random()*90000);
+}
+
+/* ================== รถเข้า ================== */
 
 function checkIn(){
-  const plate = document.getElementById("plateIn").value.trim();
-  if(!plate){
-    alert("กรุณากรอกทะเบียนรถ");
+  const plate=document.getElementById("plateIn").value.trim();
+  if(!plate){alert("กรอกทะเบียน");return;}
+
+  let data=getData();
+  if(data.filter(d=>!d.time_out).length>=MAX_SLOT){
+    alert("ที่จอดเต็ม");
     return;
   }
 
-  const data = getData();
-
-  if(data.length >= MAX_SLOT){
-    alert("ที่จอดเต็มแล้ว!");
-    return;
-  }
+  const ticket=generateTicket();
+  const timeIn=new Date().toISOString();
 
   data.push({
     plate:plate,
-    time:new Date().toLocaleString()
+    ticket:ticket,
+    time_in:timeIn,
+    time_out:null,
+    price:0
   });
 
   saveData(data);
-  updateUI();
-  alert("บันทึกเรียบร้อย ไม้กั้นเปิด");
+  updateStatus();
+
+  /* 🔥 ส่งไป n8n */
+  fetch(N8N_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      type:"เข้า",
+      plate:plate,
+      ticket:ticket,
+      time_in:timeIn
+    })
+  });
+
+  alert("Ticket ID: "+ticket);
   document.getElementById("plateIn").value="";
 }
 
+/* ================== รถออก ================== */
+
 function checkOut(){
-  const plate = document.getElementById("plateOut").value.trim();
-  if(!plate){
-    alert("กรุณากรอกทะเบียนรถ");
-    return;
-  }
+  const ticket=document.getElementById("ticketOut").value.trim();
+  let data=getData();
+  let record=data.find(d=>d.ticket===ticket && !d.time_out);
 
-  let data = getData();
-  const newData = data.filter(d => d.plate !== plate);
+  if(!record){alert("ไม่พบ Ticket");return;}
 
-  if(data.length === newData.length){
-    alert("ไม่พบทะเบียนนี้");
-    return;
-  }
+  const timeIn=new Date(record.time_in);
+  const timeOut=new Date();
+  const hours=Math.ceil((timeOut-timeIn)/3600000);
+  const price=hours*PRICE_PER_HOUR;
 
-  saveData(newData);
-  updateUI();
-  alert("รถออกเรียบร้อย");
-  document.getElementById("plateOut").value="";
+  record.time_out=timeOut.toISOString();
+  record.price=price;
+
+  saveData(data);
+  updateStatus();
+
+  /* 🔥 ส่งไป n8n */
+  fetch(N8N_URL,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({
+      type:"ออก",
+      plate:record.plate,
+      ticket:ticket,
+      price:price,
+      time_out:record.time_out
+    })
+  });
+
+  alert("ค่าจอด "+price+" บาท");
+  document.getElementById("ticketOut").value="";
 }
 
-updateUI();
+/* ================== แอดมิน ================== */
+
+function adminLogin(){
+  if(document.getElementById("adminPass").value!==ADMIN_PASS){
+    alert("รหัสผิด");return;
+  }
+
+  document.getElementById("adminPanel").classList.remove("hidden");
+  loadReport();
+}
+
+function loadReport(){
+  const data=getData();
+  const finished=data.filter(d=>d.price>0);
+
+  const total=finished.reduce((sum,d)=>sum+d.price,0);
+  document.getElementById("summary").innerText=
+  "ทั้งหมด "+finished.length+" รายการ | รายได้รวม "+total+" บาท";
+
+  const labels=finished.map((d,i)=>"รายการ "+(i+1));
+  const prices=finished.map(d=>d.price);
+
+  new Chart(document.getElementById("revenueChart"),{
+    type:"bar",
+    data:{
+      labels:labels,
+      datasets:[{
+        label:"รายได้ (บาท)",
+        data:prices,
+        backgroundColor:"#6366f1"
+      }]
+    }
+  });
+}
+
+updateStatus();
 </script>
 
 </body>
