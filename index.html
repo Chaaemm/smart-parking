@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Smart Parking Pro</title>
+<title>Smart Parking Final</title>
 
 <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -15,7 +15,6 @@
   --danger:#ef4444;
   --bg:#f3f4f6;
 }
-
 body{
   margin:0;
   font-family:'Prompt',sans-serif;
@@ -24,18 +23,15 @@ body{
   justify-content:center;
   padding:20px;
 }
-
 .app{
   width:100%;
-  max-width:500px;
+  max-width:550px;
   background:white;
   border-radius:20px;
   padding:20px;
   box-shadow:0 10px 30px rgba(0,0,0,0.1);
 }
-
 h1{text-align:center;margin-bottom:15px;}
-
 .status{
   text-align:center;
   padding:12px;
@@ -43,7 +39,6 @@ h1{text-align:center;margin-bottom:15px;}
   font-weight:600;
   margin-bottom:15px;
 }
-
 input{
   width:100%;
   padding:10px;
@@ -51,7 +46,6 @@ input{
   border:1px solid #ddd;
   margin-bottom:10px;
 }
-
 button{
   width:100%;
   padding:10px;
@@ -61,25 +55,36 @@ button{
   cursor:pointer;
   font-weight:600;
 }
-
 .btn-in{background:var(--success);color:white;}
 .btn-out{background:var(--danger);color:white;}
 .btn-admin{background:var(--primary);color:white;}
-
 .hidden{display:none;}
 .admin-box{
   background:#f9fafb;
   padding:15px;
   border-radius:15px;
   margin-top:15px;
+  overflow-x:auto;
 }
+table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+th,td{
+  padding:6px;
+  border-bottom:1px solid #ddd;
+  text-align:center;
+}
+th{background:#e5e7eb;}
+.ticket{color:#6366f1;font-weight:bold;}
 </style>
 </head>
 
 <body>
 <div class="app">
 
-<h1>🚗 Smart Parking Pro</h1>
+<h1>🚗 Smart Parking Final</h1>
 
 <div id="status" class="status"></div>
 
@@ -97,25 +102,15 @@ button{
 <input type="password" id="adminPass" placeholder="รหัสผ่าน">
 <button class="btn-admin" onclick="adminLogin()">เข้าสู่ระบบ</button>
 
-<div id="adminPanel" class="hidden admin-box">
-  <h4>📊 สรุปรายได้</h4>
-  <p id="summary"></p>
-  <canvas id="revenueChart"></canvas>
-</div>
+<div id="adminPanel" class="hidden admin-box"></div>
 
 </div>
 
 <script>
-/* ================== ตั้งค่า ================== */
-
 const MAX_SLOT = 4;
 const PRICE_PER_HOUR = 20;
 const ADMIN_PASS = "admin123";
-
-/* 🔥 วาง Production URL จาก n8n ตรงนี้ */
 const N8N_URL = "PUT_YOUR_N8N_PRODUCTION_URL_HERE";
-
-/* ============================================ */
 
 function getData(){
   return JSON.parse(localStorage.getItem("parkingLogs"))||[];
@@ -143,8 +138,7 @@ function generateTicket(){
   return "PK-"+Math.floor(10000+Math.random()*90000);
 }
 
-/* ================== รถเข้า ================== */
-
+/* รถเข้า */
 function checkIn(){
   const plate=document.getElementById("plateIn").value.trim();
   if(!plate){alert("กรอกทะเบียน");return;}
@@ -169,7 +163,6 @@ function checkIn(){
   saveData(data);
   updateStatus();
 
-  /* 🔥 ส่งไป n8n */
   fetch(N8N_URL,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -185,13 +178,11 @@ function checkIn(){
   document.getElementById("plateIn").value="";
 }
 
-/* ================== รถออก ================== */
-
+/* รถออก */
 function checkOut(){
   const ticket=document.getElementById("ticketOut").value.trim();
   let data=getData();
   let record=data.find(d=>d.ticket===ticket && !d.time_out);
-
   if(!record){alert("ไม่พบ Ticket");return;}
 
   const timeIn=new Date(record.time_in);
@@ -205,7 +196,6 @@ function checkOut(){
   saveData(data);
   updateStatus();
 
-  /* 🔥 ส่งไป n8n */
   fetch(N8N_URL,{
     method:"POST",
     headers:{"Content-Type":"application/json"},
@@ -222,13 +212,11 @@ function checkOut(){
   document.getElementById("ticketOut").value="";
 }
 
-/* ================== แอดมิน ================== */
-
+/* แอดมิน */
 function adminLogin(){
   if(document.getElementById("adminPass").value!==ADMIN_PASS){
     alert("รหัสผิด");return;
   }
-
   document.getElementById("adminPanel").classList.remove("hidden");
   loadReport();
 }
@@ -236,10 +224,35 @@ function adminLogin(){
 function loadReport(){
   const data=getData();
   const finished=data.filter(d=>d.price>0);
-
+  const active=data.filter(d=>!d.time_out);
   const total=finished.reduce((sum,d)=>sum+d.price,0);
-  document.getElementById("summary").innerText=
-  "ทั้งหมด "+finished.length+" รายการ | รายได้รวม "+total+" บาท";
+
+  let html=`
+  <h4>📊 รายงานระบบ</h4>
+  <p>🚗 กำลังจอด: ${active.length} คัน | 💰 รายได้รวม: ${total} บาท</p>
+  <table>
+    <tr>
+      <th>ทะเบียน</th>
+      <th>Ticket (PK)</th>
+      <th>เข้า</th>
+      <th>ออก</th>
+      <th>ราคา</th>
+    </tr>
+  `;
+
+  data.forEach(d=>{
+    html+=`
+    <tr>
+      <td>${d.plate}</td>
+      <td class="ticket">${d.ticket}</td>
+      <td>${d.time_in ? new Date(d.time_in).toLocaleString() : "-"}</td>
+      <td>${d.time_out ? new Date(d.time_out).toLocaleString() : "-"}</td>
+      <td>${d.price||0}</td>
+    </tr>`;
+  });
+
+  html+=`</table><canvas id="revenueChart" style="margin-top:20px"></canvas>`;
+  document.getElementById("adminPanel").innerHTML=html;
 
   const labels=finished.map((d,i)=>"รายการ "+(i+1));
   const prices=finished.map(d=>d.price);
